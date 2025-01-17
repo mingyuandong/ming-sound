@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jumpy Tone with Colorful Ball</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.40/Tone.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #playButton {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      padding: 15px 30px;
+      cursor: pointer;
+      background: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 18px;
+      font-family: Arial, sans-serif;
+      transition: all 0.3s ease;
+    }
+    #playButton:hover {
+      background: #f0f0f0;
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+    #playButton:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <button id="playButton">Play :D</button>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    // Canvas setup
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Resize handler
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Function to generate random bright color
+    function getRandomColor() {
+      const hue = Math.random() * 360;
+      return `hsl(${hue}, 100%, 50%)`;
+    }
+
+    // Ball properties
+    let ball = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 20,
+      dx: 5,
+      dy: 5,
+      targetX: canvas.width / 2,
+      targetY: canvas.height / 2,
+      color: getRandomColor()
+    };
+
+    // Function to draw the ball
+    function drawBall() {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = ball.color;
+      
+      ctx.fillStyle = ball.color;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowBlur = 0;
+    }
+
+    // Function to update the ball's position with smooth movement
+    function updateBall(note) {
+      const noteValue = note.replace(/[0-9]/g, '');
+      const angle = (noteValue.charCodeAt(0) % 12) * (Math.PI / 6);
+      const distance = canvas.width * 0.3;
+      
+      ball.targetX = canvas.width / 2 + Math.cos(angle) * distance;
+      ball.targetY = canvas.height / 2 + Math.sin(angle) * distance;
+      
+      ball.targetX = Math.min(Math.max(ball.radius, ball.targetX), canvas.width - ball.radius);
+      ball.targetY = Math.min(Math.max(ball.radius, ball.targetY), canvas.height - ball.radius);
+      
+      ball.color = getRandomColor();
+    }
+
+    // Animation loop with smooth movement
+    function animate() {
+      ball.x += (ball.targetX - ball.x) * 0.1;
+      ball.y += (ball.targetY - ball.y) * 0.1;
+      
+      drawBall();
+      requestAnimationFrame(animate);
+    }
+
+    // Start the sound and animation
+    document.getElementById('playButton').addEventListener('click', async () => {
+      await Tone.start();
+      console.log('Audio context started');
+
+      const synth = new Tone.Synth({
+        oscillator: {
+          type: 'square8'
+        },
+        envelope: {
+          attack: 0.01,
+          decay: 0.2,
+          sustain: 0.2,
+          release: 0.2
+        }
+      }).toDestination();
+
+      const reverb = new Tone.Reverb({
+        decay: 1.5,
+        wet: 0.2
+      }).toDestination();
+      
+      synth.connect(reverb);
+
+      const pattern = new Tone.Pattern(
+        (time, note) => {
+          synth.triggerAttackRelease(note, '8n', time);
+          updateBall(note);
+        },
+        ['C4', 'E4', 'G4', 'B4', 'C5', 'A4', 'F4', 'D4', 'E5', 'G5'],
+        'random'
+      );
+
+      Tone.Transport.bpm.value = 160;
+
+      animate();
+
+      pattern.start(0);
+      Tone.Transport.start();
+
+      const playButton = document.getElementById('playButton');
+      playButton.disabled = true;
+      playButton.textContent = 'Playing...';
+      playButton.style.opacity = '0.5';
+
+      setTimeout(() => {
+        pattern.stop();
+        Tone.Transport.stop();
+        console.log('Playback stopped');
+        
+        playButton.disabled = false;
+        playButton.textContent = 'Play Jumpy Tone';
+        playButton.style.opacity = '1';
+        
+        ball.targetX = canvas.width / 2;
+        ball.targetY = canvas.height / 2;
+        ball.color = getRandomColor();
+      }, 10000);
+    });
+  </script>
+</body>
+</html>
